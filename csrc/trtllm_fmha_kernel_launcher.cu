@@ -176,8 +176,8 @@ inline Data_type torch_dtype_to_tllm_data_type(at::ScalarType dtype) {
 
 void trtllm_paged_attention_decode(at::Tensor& out, at::Tensor& query, at::Tensor& key_value_cache,
                                    at::Tensor& workspace_buffer, at::Tensor& block_tables,
-                                   at::Tensor& seq_lens, int64_t max_kv_len, double bmm1_scale,
-                                   double bmm2_scale, int64_t window_left, int64_t sm_count) {
+                                   at::Tensor& seq_lens, int64_t max_kv_len, at::Tensor& bmm1_scale,
+                                   at::Tensor& bmm2_scale, int64_t window_left, int64_t sm_count) {
   auto q_data_type = torch_dtype_to_tllm_data_type(query.scalar_type());
   auto kv_data_type = torch_dtype_to_tllm_data_type(key_value_cache.scalar_type());
   auto o_data_type = torch_dtype_to_tllm_data_type(out.scalar_type());
@@ -210,6 +210,9 @@ void trtllm_paged_attention_decode(at::Tensor& out, at::Tensor& query, at::Tenso
   auto device = query.device();
   const auto stream = at::cuda::getCurrentCUDAStream(device.index());
 
+  float* bmm1_scale_ptr = bmm1_scale.data_ptr<float>();
+  float* bmm2_scale_ptr = bmm2_scale.data_ptr<float>();
+
   trtllm_paged_attention_launcher(
       out.data_ptr(), query.data_ptr(), key_value_cache.data_ptr(),
       (char*)key_value_cache.data_ptr() +
@@ -220,8 +223,8 @@ void trtllm_paged_attention_decode(at::Tensor& out, at::Tensor& query, at::Tenso
       /*cum_seq_lens_kv=*/nullptr, q_data_type, kv_data_type, o_data_type,
       TllmPagedAttentionMode::ForGen, batch_size, /*max_q_len=*/q_len_per_request, max_kv_len,
       num_pages_in_mem_pool, num_qo_heads, num_kv_heads, head_dim_qk, head_dim_vo, page_size,
-      kv_stride_keys_values, kv_stride_heads, kv_stride_batch, max_num_blocks_per_seq, bmm1_scale,
-      bmm2_scale, window_left, sum_seq_q, sm_count, stream);
+      kv_stride_keys_values, kv_stride_heads, kv_stride_batch, max_num_blocks_per_seq,
+      bmm1_scale_ptr[0], bmm2_scale_ptr[0], window_left, sum_seq_q, sm_count, stream);
 }
 
 void trtllm_paged_attention_context(at::Tensor& out, at::Tensor& query, at::Tensor& key_value_cache,

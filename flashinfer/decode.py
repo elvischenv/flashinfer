@@ -1967,8 +1967,8 @@ def trtllm_batch_decode_with_kv_cache(
     block_tables: torch.Tensor,
     seq_lens: torch.Tensor,
     max_seq_len: int,
-    bmm1_scale: float,
-    bmm2_scale: float,  # todo(Yingyi): add dynamic scale tensor later
+    bmm1_scale: torch.Tensor,
+    bmm2_scale: torch.Tensor,  # todo(Yingyi): add dynamic scale tensor later
     window_left: int = -1,
     out: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
