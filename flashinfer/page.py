@@ -190,7 +190,7 @@ def get_batch_indices_positions(
     from .triton.page import get_batch_indices_positions_kernel
 
     get_batch_indices_positions_kernel[(batch_size,)](
-        append_indptr, seq_lens, batch_indices, positions, num_stages=2
+        append_indptr, seq_lens, batch_indices, positions, nnz, num_stages=2
     )
     return batch_indices, positions
 

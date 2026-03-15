@@ -24,9 +24,11 @@ def get_batch_indices_positions_kernel(
     seq_lens_ptr,
     batch_indices_ptr,
     positions_ptr,
+    nnz,
     num_stages: tl.constexpr,
 ):
     batch_idx = tl.program_id(0)
+    num_batches = tl.num_programs(0)
 
     batch_start = tl.load(append_indptr + batch_idx)
     batch_end = tl.load(append_indptr + batch_idx + 1)
@@ -37,3 +39,14 @@ def get_batch_indices_positions_kernel(
         mask = offsets < batch_end
         tl.store(batch_indices_ptr + offsets, batch_idx, mask)
         tl.store(positions_ptr + offsets, offsets + seq_len - batch_end, mask)
+
+    # When nnz > append_indptr[-1] (token is padded), the last program
+    # fills padding entries with batch_indices=-1 so downstream kernels
+    # (e.g. rope_quantize_fp8_append_paged_kv_cache) skip their KV writes.
+    if batch_idx == num_batches - 1:
+        last_real_token = tl.load(append_indptr + num_batches)
+        for i in tl.range(last_real_token, nnz, 128, num_stages=num_stages):
+            offsets = tl.arange(0, 128) + i
+            mask = offsets < nnz
+            tl.store(batch_indices_ptr + offsets, -1, mask)
+            tl.store(positions_ptr + offsets, 0, mask)
